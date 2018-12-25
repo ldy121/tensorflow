@@ -1,12 +1,11 @@
 #!/bin/sh
 
-name=zeros_inception_v3
+name=prunable_inception_v3
 output_name=InceptionV3/Predictions/Reshape_1
 
-rm $name/*
+#rm $name/*
 
-python generate_all_zeros_inception_v3.py $name/$name
-
+#python generate_prunable_inception_v3.py $name/$name
 /opt/script/freeze_graph.sh \
 	$name/$name.pbtxt \
 	$name/$name \

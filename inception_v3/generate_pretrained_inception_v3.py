@@ -2,6 +2,7 @@ import sys
 import tensorflow as tf
 import numpy as np
 
+from tensorflow.python.ops import random_ops
 from tensorflow.contrib.framework.python.ops import arg_scope
 from tensorflow.contrib.slim.python.slim.nets import inception_v3
 
@@ -11,7 +12,7 @@ num_class = inception_v3_parameter.imagenet_class;
 
 def generate_inception_v3(sess) :
 	with arg_scope(inception_v3.inception_v3_arg_scope()) :
-		inputs = inception_v3_parameter.inputs
+		inputs = inception_v3_parameter.inputs;
 		final_endpoints, end_points = inception_v3.inception_v3(inputs, num_classes = num_class);
 		sess.run(tf.global_variables_initializer());
 
@@ -43,10 +44,11 @@ def restore_graph(sess, file_path) :
 	saver.restore(sess, file_path);
 
 if __name__ == '__main__' :
-	if len(sys.argv) == 2 :
+	if len(sys.argv) == 3 :
 		with tf.Session() as sess :
 			generate_inception_v3(sess);
-			save_graph(sess, sys.argv[1]);
+			restore_graph(sess, sys.argv[1]);
+			save_graph(sess, sys.argv[2]);
 	else :
-		print (sys.argv[0] + ' [checkpoint path to be stored]');
+		print (sys.argv[0] + ' [ pretrained checkpoint ] [ checkpoint path to be stored ]');
 
