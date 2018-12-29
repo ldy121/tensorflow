@@ -6,3 +6,7 @@ num_class = imagenet_class;
 
 batch_size, height, width = 1, 299, 299;
 inputs = random_ops.random_uniform((batch_size, height, width, 3));
+
+def get_input() :
+	ret = random_ops.random_uniform((batch_size, height, width, 3));
+	return ret;

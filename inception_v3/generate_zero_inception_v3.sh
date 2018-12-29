@@ -3,7 +3,8 @@
 name=zeros_inception_v3
 output_name=InceptionV3/Predictions/Reshape_1
 
-rm $name/*
+rm -rf $name
+mkdir $name
 
 python generate_all_zeros_inception_v3.py $name/$name
 
