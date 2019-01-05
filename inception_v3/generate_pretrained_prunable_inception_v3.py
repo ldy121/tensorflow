@@ -13,13 +13,16 @@ num_class = inception_v3_parameter.imagenet_class;
 def generate_prunable_inception_v3(sess) :
 	with arg_scope(prunable_inception_v3.prunable_inception_v3_arg_scope) :
 		input = inception_v3_parameter.get_input();
-		final_endpoints, end_points = prunable_inception_v3.prunable_inception_v3(input, num_classes = num_class);
+		final_endpoints, end_points = \
+			prunable_inception_v3.prunable_inception_v3(input,
+				num_classes = num_class, is_training = False);
 		sess.run(tf.global_variables_initializer());
 
 def generate_inception_v3(sess) :
 	with arg_scope(inception_v3.inception_v3_arg_scope()) :
 		input = inception_v3_parameter.get_input();
-		final_endpoints, end_points = inception_v3.inception_v3(input, num_classes = num_class);
+		final_endpoints, end_points = inception_v3.inception_v3(input,
+				num_classes = num_class, is_training = False);
 		sess.run(tf.global_variables_initializer());
 
 def get_all_weights(sess) :
@@ -54,7 +57,8 @@ def save_graph(sess, file_path) :
 
 	saver = tf.train.Saver();
 	saver.save(sess, file_path);
-	tf.train.write_graph(sess.graph_def, file_path[:index], file_path[index + 1:] + '.pbtxt');
+	tf.train.write_graph(sess.graph_def, file_path[:index],
+					file_path[index + 1:] + '.pbtxt');
 	train_writer = tf.summary.FileWriter(file_path[:index]);
 	train_writer.add_graph(sess.graph);
 
@@ -80,5 +84,6 @@ if __name__ == '__main__' :
 				replace_all_weights(sess, weights);
 				save_graph(sess, sys.argv[2]);
 	else :
-		print (sys.argv[0] + ' [ pretrained checkpoint ] [ checkpoint path to be stored ]');
+		print (sys.argv[0] + ' [ pretrained checkpoint ] \
+					[ checkpoint path to be stored ]');
 
