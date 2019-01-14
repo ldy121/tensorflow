@@ -3,6 +3,18 @@ import tensorflow as tf
 from cnn_neural_network import inception_v3
 from cnn_neural_network import prunable_inception_v3
 
+def compare_inception_v3(src1, src2) :
+	graph = tf.Graph();
+	with graph.as_default() :
+		with tf.Session() as sess :
+			network = inception_v3(sess);
+			network.restore_graph(src1);
+			weights = network.get_all_weights();
+			network.restore_graph(src2);
+			total_weight, equal_weight = network.comp_graph(weights);
+			print ('Total weight : %d / Equal weight : %d' % \
+					(total_weight, equal_weight));
+
 def generate_pretrained_prunable_inception_v3(src, dst) :
 	graph = tf.Graph();
 	with graph.as_default() :
@@ -71,12 +83,14 @@ help = {
 	'zero_inception_v3' : 'zero_inception_v3 [dst checkpoint]',
 	'prunable_inception_v3' : 'prunable_inception_v3 [dst checkpoint]',
 	'print_inception_v3' : 'print_inception_v3 [src checkpoint]',
-	'print_prunable_inception_v3' : 'print_prunable_inception_v3 [src checkpoint]'
+	'print_prunable_inception_v3' : 'print_prunable_inception_v3 [src checkpoint]',
+	'compare_inception_v3' : 'compare_inception_v3 [src1 checkpoint] [src2 checkpoint]',
 };
 
 func_arg2 = {
 	'pretrained_prunable_inception_v3' : generate_pretrained_prunable_inception_v3,
-	'pretrained_inception_v3' : generate_pretrained_inception_v3
+	'pretrained_inception_v3' : generate_pretrained_inception_v3,
+	'compare_inception_v3' : compare_inception_v3
 };
 
 func_arg1 = {

@@ -60,6 +60,22 @@ class cnn_neural_network(object) :
 		saver = tf.train.Saver();
 		saver.restore(self.sess, file_path);
 
+	def comp_graph(self, weight_map) :
+		def _comp_graph(i) :
+			nonlocal total_weight;
+			nonlocal equal_weight;
+			k = 1;
+			for j in i.shape :
+				k = k * j;
+			total_weight = total_weight + k;
+			if i.name in weight_map :
+				comp = np.equal(self.sess.run(i), weight_map[i.name]);
+				equal_weight = equal_weight + np.count_nonzero(comp);
+		equal_weight = 0;
+		total_weight = 0;
+		self.node_iteration(_comp_graph);
+		return total_weight, equal_weight;
+
 class inception_v3(cnn_neural_network) :
 	def __init__(self, sess) :
 		with arg_scope(nets.inception_v3.inception_v3_arg_scope()) :
