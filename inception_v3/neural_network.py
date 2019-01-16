@@ -1,116 +1,119 @@
-import sys
 import tensorflow as tf
-from cnn_neural_network import inception_v3
-from cnn_neural_network import prunable_inception_v3
+import numpy as np
 
-def compare_inception_v3(src1, src2) :
-	graph = tf.Graph();
-	with graph.as_default() :
-		with tf.Session() as sess :
-			network = inception_v3(sess);
-			network.restore_graph(src1);
-			weights = network.get_all_weights();
-			network.restore_graph(src2);
-			total_weight, equal_weight = network.comp_graph(weights);
-			print ('Total weight : %d / Equal weight : %d' % \
-					(total_weight, equal_weight));
+from tensorflow.python.platform import gfile
+from tensorflow.python.framework import tensor_util
 
-def generate_pretrained_prunable_inception_v3(src, dst) :
-	graph = tf.Graph();
-	with graph.as_default() :
-		with tf.Session() as sess :
-			network = inception_v3(sess);
-			network.restore_graph(src);
-			weights = network.get_all_weights();
+from tensorflow.contrib.framework.python.ops import arg_scope
+from tensorflow.contrib.slim.python.slim import nets
+import prunable_inception_v3 as inception_v3_prun
+import inception_v3_parameter
 
-	tf.reset_default_graph();
+class neural_network(object) :
+	def __init__(self, name, sess) :
+		self.name = name;
+		self.sess = sess;
 
-	graph = tf.Graph();
-	with graph.as_default() :
-		with tf.Session() as sess :
-			network = prunable_inception_v3(sess);
-			network.replace_graph(weights);
-			network.save_graph(dst);
+	def node_iteration(self, func) :
+		for i in tf.trainable_variables() :
+			func(i);
 
-def generate_zero_inception_v3(dst) :
-	with tf.Session() as sess :
-		network = inception_v3(sess);
-		network.reset_all_weights();
-		network.save_graph(dst);
+	def replace_node(self, tensor, values) :
+		replace = tensor.assign(values);
+		self.sess.run(replace);
 
-def generate_pretrained_inception_v3(src, dst) :
-	with tf.Session() as sess :
-		network = inception_v3(sess);
-		network.restore_graph(src);
-		network.save_graph(dst);
+	def get_all_weights(self) :
+		ret = {};
+		def _get_all_weights(i) :
+			ret.update({i.name : self.sess.run(i)});
+		self.node_iteration(_get_all_weights);
+		return ret;
 
-def generate_prunable_inception_v3(dst) :
-	with tf.Session() as sess :
-		network = prunable_inception_v3(sess);
-		network.reset_all_weights();
-		network.save_graph(dst);
+	def reset_all_weights(self) :
+		def _reset_all_weights(i) :
+			zeros = np.zeros(i.shape);
+			self.replace_node(i, zeros);
+		self.node_iteration(_reset_all_weights);
 
-def print_inception_v3(src) :
-	with tf.Session() as sess :
-		network = inception_v3(sess);
-		network.restore_graph(src);
-		network.print_all_weights();
+	def replace_graph(self, weight_map) :
+		def _replace_graph(i) :
+			if i.name in weight_map :
+				self.replace_node(i, weight_map[i.name]);
+		self.node_iteration(_replace_graph);
 
-def print_prunable_inception_v3(src) :
-	with tf.Session() as sess :
-		network = prunable_inception_v3(sess);
-		network.restore_graph(src);
-		network.print_all_weights();
+	def print_all_weights(self) :
+		all_weights = self.get_all_weights();
+		for i in all_weights.keys() :
+			print (i);
+			print (all_weights[i]);
 
-def get_func(op, num_arg) :
-	min_arg = min(len(func), num_arg);
-	for i in range(min_arg + 1) :
-		func_list = func[i];
-		if op in func_list :
-			if i == num_arg :
-				return func_list[op];
-			break;
-	return None;
+	def save_graph(self, file_path) :
+		index = file_path.rfind('/');
+		if index == -1 :
+			file_path = './' + file_path;
 
-def print_help(cmd) :
-	for i in func :
-		for j in i.keys() :
-			print (cmd + ' ' + help[j]);
+		saver = tf.train.Saver();
+		saver.save(self.sess, file_path);
+		tf.train.write_graph(self.sess.graph_def, file_path[:index],
+					file_path[index + 1:] + '.pbtxt');
+		train_writer = tf.summary.FileWriter(file_path[:index]);
+		train_writer.add_graph(self.sess.graph);
 
-help = {
-	'pretrained_prunable_inception_v3' : 'pretrained_prunable_inception_v3 [ src checkpoint ] [ dst checkpoint ]',
-	'pretrained_inception_v3' : 'pretrained_inception_v3 [ src checkpoint ] [ dst checkpoint ]',
-	'zero_inception_v3' : 'zero_inception_v3 [dst checkpoint]',
-	'prunable_inception_v3' : 'prunable_inception_v3 [dst checkpoint]',
-	'print_inception_v3' : 'print_inception_v3 [src checkpoint]',
-	'print_prunable_inception_v3' : 'print_prunable_inception_v3 [src checkpoint]',
-	'compare_inception_v3' : 'compare_inception_v3 [src1 checkpoint] [src2 checkpoint]',
-};
+	def pb_file_restore(self, file_path) :
+		with gfile.FastGFile(file_path, 'rb') as f :
+			graph_def = tf.GraphDef();
+			graph_def.ParseFromString(f.read());
+			self.sess.graph.as_default();
+			tf.import_graph_def(graph_def, name = '');
+			graph_nodes = [n for n in graph_def.node];
+			wts = [n for n in graph_nodes if n.op == 'Const'];
+			weight_map = {};
+			for n in wts :
+				weight_map.update({n.name + ':0' : tensor_util. \
+					MakeNdarray(n.attr['value'].tensor)});
+			self.replace_graph(weight_map);
 
-func_arg2 = {
-	'pretrained_prunable_inception_v3' : generate_pretrained_prunable_inception_v3,
-	'pretrained_inception_v3' : generate_pretrained_inception_v3,
-	'compare_inception_v3' : compare_inception_v3
-};
+	def restore_graph(self, file_path) :
+		if (file_path[-3:] == '.pb') :
+			self.pb_file_restore(file_path);
+		else :
+			saver = tf.train.Saver();
+			saver.restore(self.sess, file_path);
 
-func_arg1 = {
-	'zero_inception_v3' : generate_zero_inception_v3,
-	'prunable_inception_v3' : generate_prunable_inception_v3,
-	'print_inception_v3' : print_inception_v3,
-	'print_prunable_inception_v3' : print_prunable_inception_v3
-};
+	def comp_graph(self, weight_map) :
+		def _comp_graph(i) :
+			nonlocal total_weight;
+			nonlocal equal_weight;
+			k = 1;
+			for j in i.shape :
+				k = k * j;
+			total_weight = total_weight + k;
+			if i.name in weight_map :
+				comp = np.equal(self.sess.run(i), weight_map[i.name]);
+				equal_weight = equal_weight + np.count_nonzero(comp);
+		equal_weight = 0;
+		total_weight = 0;
+		self.node_iteration(_comp_graph);
+		return total_weight, equal_weight;
 
-func_arg0 = {
-};
+class inception_v3(neural_network) :
+	def __init__(self, sess) :
+		with arg_scope(nets.inception_v3.inception_v3_arg_scope()) :
+			input = inception_v3_parameter.get_input();
+			final_endpoints, end_points = \
+				nets.inception_v3.inception_v3(input, \
+				num_classes = inception_v3_parameter.num_class, \
+				is_training = False);
+			sess.run(tf.global_variables_initializer());
+		neural_network.__init__(self, self.__class__.__name__, sess);
 
-func = [func_arg0, func_arg1, func_arg2];
-
-if __name__ == '__main__' :
-	f = None;
-	if len(sys.argv) >= 3 :
-		f = get_func(sys.argv[1], len(sys.argv) - 2);
-	if f == None :
-		print_help(sys.argv[0]);
-	else :
-		f (*(sys.argv[2:]));
-
+class prunable_inception_v3(neural_network) :
+	def __init__(self, sess) :
+		with arg_scope(inception_v3_prun.prunable_inception_v3_arg_scope) :
+			input = inception_v3_parameter.get_input();
+			final_endpoints, end_points = \
+				inception_v3_prun.prunable_inception_v3(input, \
+				num_classes = inception_v3_parameter.num_class, \
+				is_training = False);
+			sess.run(tf.global_variables_initializer());
+		neural_network.__init__(self, self.__class__.__name__, sess);

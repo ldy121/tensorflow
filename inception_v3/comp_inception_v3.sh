@@ -1,6 +1,6 @@
 #!/bin/sh
 
-python_script=neural_network.py
+python_script=cnn_neural_network.py
 
 if [ $# -eq 2 ];
 then
