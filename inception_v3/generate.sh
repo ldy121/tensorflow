@@ -34,22 +34,22 @@ prunable_inception_v3_freeze() {
 }
 
 generate_pretrained_inception_v3() {
-	python ${python_script} ${name} ${input_path} ${name}/${name}
+	python3 ${python_script} ${name} ${input_path} ${name}/${name}
 	inception_v3_freeze
 }
 
 generate_pretrained_prunable_inception_v3() {
-	python ${python_script} ${name} ${input_path} ${name}/${name}
+	python3 ${python_script} ${name} ${input_path} ${name}/${name}
 	prunable_inception_v3_freeze
 }
 
 generate_prunable_inception_v3() {
-	python ${python_script} ${name} ${name}/${name}
+	python3 ${python_script} ${name} ${name}/${name}
 	prunable_inception_v3_freeze
 }
 
 generate_zero_inception_v3() {
-	python ${python_script} ${name} ${name}/${name}
+	python3 ${python_script} ${name} ${name}/${name}
 	inception_v3_freeze
 }
 

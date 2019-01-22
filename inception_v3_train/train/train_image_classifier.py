@@ -25,6 +25,9 @@ from deployment import model_deploy
 from nets import nets_factory
 from preprocessing import preprocessing_factory
 
+from tensorflow.contrib.model_pruning.python import pruning
+from tensorflow.contrib.model_pruning.python import learning as pruning_learning
+
 slim = tf.contrib.slim
 
 tf.app.flags.DEFINE_string(
@@ -228,6 +231,18 @@ tf.app.flags.DEFINE_boolean(
     'ignore_missing_vars', False,
     'When restoring a checkpoint would ignore missing variables.')
 
+#####################
+# Fine-Tuning Flags #
+#####################
+
+tf.app.flags.DEFINE_boolean(
+    'pruning', False,
+    'When retrain pruning model');
+
+tf.app.flags.DEFINE_string(
+    'pruning_hparams', None,
+    'Pruing hyper parameters');
+
 FLAGS = tf.app.flags.FLAGS
 
 
@@ -391,6 +406,13 @@ def _get_variables_to_train():
     variables_to_train.extend(variables)
   return variables_to_train
 
+
+mask_update_op = None;
+def train_step_with_pruning_fn(sess, train_op, global_step, train_step_kwargs) :
+    total_loss, should_stop = slim.learning.train_step(sess, train_op,
+                           global_step, train_step_kwargs);
+    sess.run(mask_update_op);
+    return total_loss, should_stop;
 
 def main(_):
   if not FLAGS.dataset_dir:
@@ -572,7 +594,32 @@ def main(_):
     ###########################
     # Kicks off the training. #
     ###########################
-    slim.learning.train(
+    if FLAGS.pruning :
+      global mask_update_op;
+      if FLAGS.pruning_hparams is not None :
+        pruning_hparams = pruning.get_pruning_hparams().parse();
+	pruning_obj = pruning.Pruning(pruning_hparams);
+      else :
+	pruning_obj = pruning.Pruning();
+      pruning_obj.print_hparams();
+      mask_update_op = pruning_obj.conditional_mask_update_op();
+
+      slim.learning.train(
+        train_tensor,
+        logdir=FLAGS.train_dir,
+	train_step_fn = train_step_with_pruning_fn,
+        master=FLAGS.master,
+        is_chief=(FLAGS.task == 0),
+        init_fn=_get_init_fn(),
+        summary_op=summary_op,
+        number_of_steps=FLAGS.max_number_of_steps,
+        log_every_n_steps=FLAGS.log_every_n_steps,
+        save_summaries_secs=FLAGS.save_summaries_secs,
+        save_interval_secs=FLAGS.save_interval_secs,
+        sync_optimizer=optimizer if FLAGS.sync_replicas else None)
+
+    else :
+      slim.learning.train(
         train_tensor,
         logdir=FLAGS.train_dir,
         master=FLAGS.master,

@@ -28,32 +28,33 @@ set -e
 PRETRAINED_CHECKPOINT_DIR=inception_v3_flowers_checkpoint/pretrained_inception_v3
 
 # Where the training (fine-tuned) checkpoint and logs will be saved to.
-TRAIN_DIR=inception_v3_flowers_checkpoint/retrained_inception_v3
+TRAIN_DIR=/home/dy121/github/tensorflow/inception_v3_train/inception_v3_flowers_checkpoint/retrained_prunable_inception_v3
 
 # Where the dataset is saved to.
 DATASET_DIR=/mnt/retrain/flowers
 
+pruning_hparams="begin_pruning_step=1,pruning_frequency=1,end_pruning_step=100,target_sparsity=0.5"
 train_image_classify() {
 # Fine-tune only the new layers for 1000 steps.
 	python train/train_image_classifier.py \
 	  --model_name=$1 \
-	  --checkpoint_path=$2 \
 	  --train_dir=${TRAIN_DIR} \
 	  --dataset_name=flowers \
 	  --dataset_split_name=train \
 	  --dataset_dir=${DATASET_DIR} \
-	  --checkpoint_exclude_scopes=InceptionV3/Logits,InceptionV3/AuxLogits \
-	  --trainable_scopes=InceptionV3/Logits,InceptionV3/AuxLogits \
-	  --max_number_of_steps=1 \
-	  --batch_size=32 \
+	  --max_number_of_steps=10 \
+	  --batch_size=1 \
 	  --learning_rate=0.01 \
 	  --learning_rate_decay_type=fixed \
-	  --save_interval_secs=60 \
-	  --save_summaries_secs=60 \
+	  --save_interval_secs=3600 \
+	  --save_summaries_secs=3600 \
 	  --log_every_n_steps=100 \
 	  --optimizer=rmsprop \
 	  --clone_on_cpu=true \
-	  --weight_decay=0.00004
+	  --weight_decay=0.00004 \
+	  --num_readers=1 \
+	  --num_preprocessing_threads=1 \
+	  --pruning=True
 }
 
 evaluate_model(){
@@ -67,5 +68,5 @@ evaluate_model(){
 	  --model_name=$1
 }
 
-train_image_classify inception_v3 ${PRETRAINED_CHECKPOINT_DIR}
+train_image_classify prunable_inception_v3 ${PRETRAINED_CHECKPOINT_DIR}
 #evaluate_model
