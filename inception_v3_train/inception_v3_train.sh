@@ -24,21 +24,20 @@
 # ./slim/scripts/finetune_inception_v3_on_flowers.sh
 set -e
 
-# Where the pre-trained InceptionV3 checkpoint is saved to.
-PRETRAINED_CHECKPOINT_DIR=inception_v3_flowers_checkpoint/pretrained_inception_v3
-
-# Where the training (fine-tuned) checkpoint and logs will be saved to.
-TRAIN_DIR=/home/dy121/github/tensorflow/inception_v3_train/inception_v3_flowers_checkpoint/retrained_prunable_inception_v3
-
 # Where the dataset is saved to.
 DATASET_DIR=/mnt/retrain/flowers
 
-pruning_hparams="begin_pruning_step=1,pruning_frequency=1,end_pruning_step=100,target_sparsity=0.5"
+PRUNING_HPARAMS="begin_pruning_step=1,pruning_frequency=1,end_pruning_step=100,target_sparsity=0.5"
 train_image_classify() {
-# Fine-tune only the new layers for 1000 steps.
+	model_name=$1
+	train_dir=$2
+
+	rm -rf $train_dir
+	mkdir $train_dir
+
 	python train/train_image_classifier.py \
-	  --model_name=$1 \
-	  --train_dir=${TRAIN_DIR} \
+	  --model_name=${model_name} \
+	  --train_dir=${train_dir} \
 	  --dataset_name=flowers \
 	  --dataset_split_name=train \
 	  --dataset_dir=${DATASET_DIR} \
@@ -54,19 +53,43 @@ train_image_classify() {
 	  --weight_decay=0.00004 \
 	  --num_readers=1 \
 	  --num_preprocessing_threads=1 \
-	  --pruning=True
+	  ${PRUNING}
 }
 
 evaluate_model(){
-	# Run evaluation.
+	model_name=$1
+	train_dir=$2
+
 	python eval_image_classifier.py \
-	  --checkpoint_path=${TRAIN_DIR} \
-	  --eval_dir=${TRAIN_DIR} \
+	  --checkpoint_path=${train_dir} \
+	  --eval_dir=${train_dir} \
 	  --dataset_name=flowers \
 	  --dataset_split_name=validation \
 	  --dataset_dir=${DATASET_DIR} \
-	  --model_name=$1
+	  --model_name=${model_name}
 }
 
-train_image_classify prunable_inception_v3 ${PRETRAINED_CHECKPOINT_DIR}
+print_help(){
+	cmd=$1
+	echo $cmd' [prunable_inception_v3 / inception_v3]'
+}
+
+if [ $# -eq 1 ];
+then
+	if [ $1 = 'prunable_inception_v3' ];
+	then
+		TRAIN_DIR=inception_v3_flowers_checkpoint/pretrained_inception_v3
+		PRUNING='--pruning=True --pruning_hparams='${PRUNING_HPARAMS}
+		train_image_classify prunable_inception_v3 ${TRAIN_DIR}
+	elif [ $1 = 'inception_v3' ];
+	then
+		TRAIN_DIR=inception_v3_flowers_checkpoint/inception_v3
+		PRUNING='--pruning=False'
+		train_image_classify inception_v3 ${TRAIN_DIR}
+	else
+		print_help $0
+	fi
+else
+	print_help $0
+fi
 #evaluate_model
