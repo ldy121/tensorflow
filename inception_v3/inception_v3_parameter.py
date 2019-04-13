@@ -4,7 +4,7 @@ from tensorflow.python.framework import dtypes
 
 flower_class = 4;
 imagenet_class = 1001;
-num_class = flower_class;
+num_class = imagenet_class;
 
 batch_size, height, width, channel = None, 299, 299, 3;
 
