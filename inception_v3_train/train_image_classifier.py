@@ -597,7 +597,7 @@ def main(_):
     if FLAGS.pruning :
       global mask_update_op;
       if FLAGS.pruning_hparams is not None :
-        pruning_hparams = pruning.get_pruning_hparams().parse();
+        pruning_hparams = pruning.get_pruning_hparams().parse(FLAGS.pruning_hparams);
 	pruning_obj = pruning.Pruning(pruning_hparams);
       else :
 	pruning_obj = pruning.Pruning();

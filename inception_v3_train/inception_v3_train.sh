@@ -26,22 +26,25 @@ set -e
 
 # Where the dataset is saved to.
 DATASET_DIR=/mnt/retrain/flowers
+PYTHONPATH=/home/ldy121/tensorflow/lib:$PYTHONPATH
+export PYTHONPATH
 
-PRUNING_HPARAMS="begin_pruning_step=1,pruning_frequency=1,end_pruning_step=100,target_sparsity=0.5"
+PRUNING_HPARAMS="begin_pruning_step=1,pruning_frequency=1,end_pruning_step=100,target_sparsity=0.9"
 train_image_classify() {
 	model_name=$1
 	train_dir=$2
+	max_step=$3
 
 	rm -rf $train_dir
 	mkdir $train_dir
 
-	python train/train_image_classifier.py \
+	python train_image_classifier.py \
 	  --model_name=${model_name} \
 	  --train_dir=${train_dir} \
 	  --dataset_name=flowers \
 	  --dataset_split_name=train \
 	  --dataset_dir=${DATASET_DIR} \
-	  --max_number_of_steps=10 \
+	  --max_number_of_steps=${max_step} \
 	  --batch_size=1 \
 	  --learning_rate=0.01 \
 	  --learning_rate_decay_type=fixed \
@@ -78,9 +81,14 @@ if [ $# -eq 1 ];
 then
 	if [ $1 = 'prunable_inception_v3' ];
 	then
-		TRAIN_DIR=inception_v3_flowers_checkpoint/pretrained_inception_v3
-		PRUNING='--pruning=True --pruning_hparams='${PRUNING_HPARAMS}
-		train_image_classify prunable_inception_v3 ${TRAIN_DIR}
+		for i in 0.3 0.6 0.9
+		do
+			TRAIN_DIR=inception_v3_flowers_checkpoint/pruning_inception_v3_${i}
+			PRUNING_HPARAMS="begin_pruning_step=1,pruning_frequency=1,end_pruning_step=100,target_sparsity="${i}
+			PRUNING='--pruning=True --pruning_hparams='${PRUNING_HPARAMS}
+			MAX_STEP=1
+			train_image_classify prunable_inception_v3 ${TRAIN_DIR} ${MAX_STEP}
+		done
 	elif [ $1 = 'inception_v3' ];
 	then
 		TRAIN_DIR=inception_v3_flowers_checkpoint/inception_v3
