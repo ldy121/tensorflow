@@ -55,6 +55,8 @@ from object_detection.predictors.heads import mask_head
 from object_detection.protos import model_pb2
 from object_detection.utils import ops
 
+from object_detection.models.prunable_ssd_mobilenet_v2_feature_extractor import PrunableSSDMobileNetV2FeatureExtractor # by LDY
+
 # A map of names to SSD feature extractors.
 SSD_FEATURE_EXTRACTOR_CLASS_MAP = {
     'ssd_inception_v2': SSDInceptionV2FeatureExtractor,
@@ -74,6 +76,7 @@ SSD_FEATURE_EXTRACTOR_CLASS_MAP = {
         ssd_resnet_v1_ppn.SSDResnet152V1PpnFeatureExtractor,
     'embedded_ssd_mobilenet_v1': EmbeddedSSDMobileNetV1FeatureExtractor,
     'ssd_pnasnet': SSDPNASNetFeatureExtractor,
+    'prunable_ssd_mobilenet_v2': PrunableSSDMobileNetV2FeatureExtractor, # by LDY
 }
 
 SSD_KERAS_FEATURE_EXTRACTOR_CLASS_MAP = {

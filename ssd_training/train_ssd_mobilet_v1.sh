@@ -1,11 +1,18 @@
 # From the tensorflow/models/research/ directory
-PIPELINE_CONFIG_PATH={path to pipeline config file}
-MODEL_DIR={path to model directory}
-NUM_TRAIN_STEPS=50000
+
+#NUM_TRAIN_STEPS=50000
+
+PIPELINE_CONFIG_PATH=object_detection/samples/configs/ssd_mobilenet_v1_pets.config
+MODEL_DIR=ssd_mobilenet_v1_pets
+NUM_TRAIN_STEPS=1
 SAMPLE_1_OF_N_EVAL_EXAMPLES=1
+
+PYTHONPATH="./":"../lib_cnn":"$PYTHONPATH"
+export PYTHONPATH
+
 python object_detection/model_main.py \
     --pipeline_config_path=${PIPELINE_CONFIG_PATH} \
-    --model_dir=${MODEL_DIR} \
     --num_train_steps=${NUM_TRAIN_STEPS} \
     --sample_1_of_n_eval_examples=$SAMPLE_1_OF_N_EVAL_EXAMPLES \
+    --model_dir=${MODEL_DIR} \
     --alsologtostderr
