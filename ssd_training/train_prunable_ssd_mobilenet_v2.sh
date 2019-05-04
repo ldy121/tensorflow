@@ -1,14 +1,10 @@
 # From the tensorflow/models/research/ directory
-
+CONFIG_SCRIPT=./ssd_mobilenet_v2_config.sh
 #NUM_TRAIN_STEPS=50000
-
-PIPELINE_CONFIG_PATH=object_detection/samples/configs/prunable_ssd_mobilenet_v2_pets.config
-MODEL_DIR=prunable_ssd_mobilenet_v2_pets
 NUM_TRAIN_STEPS=1
 SAMPLE_1_OF_N_EVAL_EXAMPLES=1
 
-PYTHONPATH="./":"../lib_cnn":"$PYTHONPATH"
-export PYTHONPATH
+. ${CONFIG_SCRIPT}
 
 python object_detection/model_main.py \
     --pipeline_config_path=${PIPELINE_CONFIG_PATH} \
