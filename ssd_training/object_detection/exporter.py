@@ -27,6 +27,10 @@ from object_detection.data_decoders import tf_example_decoder
 from object_detection.utils import config_util
 from object_detection.utils import shape_utils
 
+from tensorflow.python.framework import graph_io # by LDY
+from tensorflow.contrib.model_pruning.python import strip_pruning_vars_lib # by LDY
+from tensorflow.python.platform import tf_logging as logging
+
 slim = tf.contrib.slim
 
 freeze_graph_with_def_protos = freeze_graph.freeze_graph_with_def_protos
@@ -453,6 +457,154 @@ def export_inference_graph(input_type,
     graph_rewriter_fn = graph_rewriter_builder.build(graph_rewriter_config,
                                                      is_training=False)
   _export_inference_graph(
+      input_type,
+      detection_model,
+      pipeline_config.eval_config.use_moving_averages,
+      trained_checkpoint_prefix,
+      output_directory,
+      additional_output_tensor_names,
+      input_shape,
+      output_collection_name,
+      graph_hook_fn=graph_rewriter_fn,
+      write_inference_graph=write_inference_graph)
+  pipeline_config.eval_config.use_moving_averages = False
+  config_util.save_pipeline_config(pipeline_config, output_directory)
+
+def strip_pruning_vars(checkpoint_dir, output_node_names, output_dir, filename):
+  """Remove pruning-related auxiliary variables and ops from the graph.
+
+  Accepts training checkpoints and produces a GraphDef in which the pruning vars
+  and ops have been removed.
+
+  Args:
+    checkpoint_dir: Path to the checkpoints.
+    output_node_names: The name of the output nodes, comma separated.
+    output_dir: Directory where to write the graph.
+    filename: Output GraphDef file name.
+
+  Returns:
+    None
+
+  Raises:
+    ValueError: if output_nodes_names are not provided.
+  """
+  if not output_node_names:
+    raise ValueError(
+        'Need to specify atleast 1 output node through output_node_names flag')
+  output_node_names = output_node_names.replace(' ', '').split(',')
+
+  initial_graph_def = strip_pruning_vars_lib.graph_def_from_checkpoint(
+      checkpoint_dir, output_node_names)
+
+  final_graph_def = strip_pruning_vars_lib.strip_pruning_vars_fn(
+      initial_graph_def, output_node_names)
+  graph_io.write_graph(final_graph_def, output_dir, filename, as_text=False)
+  logging.info('\nFinal graph written to %s', os.path.join(
+      output_dir, filename))
+  return final_graph_def;
+
+
+def _export_pruned_inference_graph(input_type,
+                            detection_model,
+                            use_moving_averages,
+                            trained_checkpoint_prefix,
+                            output_directory,
+                            additional_output_tensor_names=None,
+                            input_shape=None,
+                            output_collection_name='inference_op',
+                            graph_hook_fn=None,
+                            write_inference_graph=False,
+                            temp_checkpoint_prefix=''):
+  """Export helper."""
+  tf.gfile.MakeDirs(output_directory)
+  frozen_graph_filename = 'frozen_pruned_inference_graph.pb';
+  saved_model_path = os.path.join(output_directory, 'saved_model')
+  model_path = os.path.join(output_directory, 'model.ckpt')
+
+  outputs, placeholder_tensor = build_detection_graph(
+      input_type=input_type,
+      detection_model=detection_model,
+      input_shape=input_shape,
+      output_collection_name=output_collection_name,
+      graph_hook_fn=graph_hook_fn)
+
+  profile_inference_graph(tf.get_default_graph())
+  saver_kwargs = {}
+  if use_moving_averages:
+    if not temp_checkpoint_prefix:
+      # This check is to be compatible with both version of SaverDef.
+      if os.path.isfile(trained_checkpoint_prefix):
+        saver_kwargs['write_version'] = saver_pb2.SaverDef.V1
+        temp_checkpoint_prefix = tempfile.NamedTemporaryFile().name
+      else:
+        temp_checkpoint_prefix = tempfile.mkdtemp()
+    replace_variable_values_with_moving_averages(
+        tf.get_default_graph(), trained_checkpoint_prefix,
+        temp_checkpoint_prefix)
+    checkpoint_to_use = temp_checkpoint_prefix
+  else:
+    checkpoint_to_use = trained_checkpoint_prefix
+
+  saver = tf.train.Saver(**saver_kwargs)
+  input_saver_def = saver.as_saver_def()
+
+  write_graph_and_checkpoint(
+      inference_graph_def=tf.get_default_graph().as_graph_def(),
+      model_path=model_path,
+      input_saver_def=input_saver_def,
+      trained_checkpoint_prefix=checkpoint_to_use)
+  if write_inference_graph:
+    inference_graph_def = tf.get_default_graph().as_graph_def()
+    inference_graph_path = os.path.join(output_directory,
+                                        'inference_graph.pbtxt')
+    for node in inference_graph_def.node:
+      node.device = ''
+    with tf.gfile.GFile(inference_graph_path, 'wb') as f:
+      f.write(str(inference_graph_def))
+
+  if additional_output_tensor_names is not None:
+    output_node_names = ','.join(outputs.keys()+additional_output_tensor_names)
+  else:
+    output_node_names = ','.join(outputs.keys())
+
+  checkpoint_dir = trained_checkpoint_prefix[:trained_checkpoint_prefix.find('/')]; # by LDY
+  frozen_graph_def = strip_pruning_vars(checkpoint_dir, output_node_names,
+		  output_directory, frozen_graph_filename); # by LDY
+  write_saved_model(saved_model_path, frozen_graph_def,
+                    placeholder_tensor, outputs)
+
+def export_pruned_inference_graph(input_type,
+                           pipeline_config,
+                           trained_checkpoint_prefix,
+                           output_directory,
+                           input_shape=None,
+                           output_collection_name='inference_op',
+                           additional_output_tensor_names=None,
+                           write_inference_graph=False):
+  """Exports inference graph for the model specified in the pipeline config.
+
+  Args:
+    input_type: Type of input for the graph. Can be one of ['image_tensor',
+      'encoded_image_string_tensor', 'tf_example'].
+    pipeline_config: pipeline_pb2.TrainAndEvalPipelineConfig proto.
+    trained_checkpoint_prefix: Path to the trained checkpoint file.
+    output_directory: Path to write outputs.
+    input_shape: Sets a fixed shape for an `image_tensor` input. If not
+      specified, will default to [None, None, None, 3].
+    output_collection_name: Name of collection to add output tensors to.
+      If None, does not add output tensors to a collection.
+    additional_output_tensor_names: list of additional output
+      tensors to include in the frozen graph.
+    write_inference_graph: If true, writes inference graph to disk.
+  """
+  detection_model = model_builder.build(pipeline_config.model,
+                                        is_training=False)
+  graph_rewriter_fn = None
+  if pipeline_config.HasField('graph_rewriter'):
+    graph_rewriter_config = pipeline_config.graph_rewriter
+    graph_rewriter_fn = graph_rewriter_builder.build(graph_rewriter_config,
+                                                     is_training=False)
+  _export_pruned_inference_graph(
       input_type,
       detection_model,
       pipeline_config.eval_config.use_moving_averages,
