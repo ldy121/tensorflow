@@ -1,0 +1,17 @@
+<resources>
+    <string name="app_name">Android NN Test</string>
+    <string name="navigation_drawer_open">Open navigation drawer</string>
+    <string name="navigation_drawer_close">Close navigation drawer</string>
+    <string name="nav_header_title">Android NN Test</string>
+    <string name="nav_header_subtitle">dy121.lee@gmail.com</string>
+    <string name="nav_header_desc">Navigation header</string>
+    <string name="action_settings">Settings</string>
+
+    <string name="menu_performance_classification">Classification Network</string>
+    <string name="menu_performance_object_detection">Object Detection Network</string>
+    <string name="menu_performance_segmentation">Segmentation Network</string>
+
+    <string name="menu_validation_classification">Classification Network</string>
+    <string name="menu_validation_region">Image Region Network</string>
+
+</resources>

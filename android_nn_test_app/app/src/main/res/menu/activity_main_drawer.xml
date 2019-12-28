@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    tools:showIn="navigation_view">
+
+    <group android:checkableBehavior="single">
+        <item android:title="Network Performance Evaluation">
+            <menu>
+                <item
+                    android:id="@+id/performance_classification"
+                    android:icon="@drawable/ic_menu_gallery"
+                    android:title="@string/menu_performance_classification" />
+                <item
+                    android:id="@+id/performance_object_detection"
+                    android:icon="@drawable/ic_menu_gallery"
+                    android:title="@string/menu_performance_object_detection" />
+
+                <item
+                    android:id="@+id/performance_segmentation"
+                    android:icon="@drawable/ic_menu_gallery"
+                    android:title="@string/menu_performance_segmentation" />
+
+            </menu>
+        </item>
+        <item android:title="Network Model Validation">
+            <menu>
+                <item
+                    android:id="@+id/validation_classifcation"
+                    android:icon="@drawable/ic_menu_gallery"
+                    android:title="@string/menu_validation_classification" />
+                <item
+                    android:id="@+id/validation_region"
+                    android:icon="@drawable/ic_menu_gallery"
+                    android:title="@string/menu_validation_region" />
+            </menu>
+        </item>
+    </group>
+</menu>
